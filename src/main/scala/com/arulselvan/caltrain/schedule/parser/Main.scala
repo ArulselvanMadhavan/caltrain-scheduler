@@ -10,6 +10,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.Json
 import scala.util.{Try, Success, Failure}
+import java.io._
 
 final case class TrainInfo(station: String,
                            zone: String,
@@ -20,8 +21,11 @@ final case class Stats(prev: Option[TimeFormat],
                        timeFormat: String,
                        result: List[String])
 
+final case class Stations(stations:Iterable[String])
+
 final case class TimeFormat(hour: Int, minutes: Int)
     extends Ordered[TimeFormat] {
+
   def compare(that: TimeFormat): Int = {
     (this.hour compare that.hour) match {
       case 0 => this.minutes compare that.minutes
@@ -94,6 +98,13 @@ object Main {
     TrainInfo(stationName, zoneId, northBoundTrains, southBoundTrains).asJson
   }
 
+  private[this] def writeJsonToFile(fileName: String, text:Json): Unit = {
+    val file = new File(fileName)
+    val bw = new BufferedWriter(new FileWriter(file))
+    bw.write(text.toString)
+    bw.close()
+  }
+
   def main(args: Array[String]): Unit = {
     val browser: Browser = JsoupBrowser()
     val doc = browser.get(CALTRAIN_SITE)
@@ -102,8 +113,9 @@ object Main {
     val nbTrains = northboundTT >> elementList("tbody tr")
     val sbTrains = (southboundTT >> elementList("tbody tr")).reverse
     val allTrains = (nbTrains zip sbTrains)
-    for {
+    val allStations:Iterable[Json] = for {
       (nbTrain, sbTrain) <- allTrains
     } yield constructJsonFormat(nbTrain, sbTrain)
+    writeJsonToFile("allStations.json", allStations.asJson);
   }
 }
